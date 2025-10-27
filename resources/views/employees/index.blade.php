@@ -41,7 +41,7 @@
                         <option value="">All Branches</option>
                         @foreach($branches as $branch)
                             <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
-                                {{ $branch->name }} - {{ $branch->city }}
+                                {{ $branch->branch_name }}
                             </option>
                         @endforeach
                     </select>
@@ -128,9 +128,9 @@
                             </td>
                             <td>
                                 <div>
-                                    <strong>{{ $employee->branch->name }}</strong>
+                                    <strong>{{ $employee->branch->branch_name }}</strong>
                                 </div>
-                                <small class="text-muted">{{ $employee->branch->city }}, {{ $employee->branch->state }}</small>
+                                <small class="text-muted">{{ $employee->branch->address }}</small>
                             </td>
                             <td>
                                 <strong>${{ number_format($employee->salary, 2) }}</strong>

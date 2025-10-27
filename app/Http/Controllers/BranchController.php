@@ -52,10 +52,27 @@ class BranchController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Branch $branch)
+    public function show(Request $request, Branch $branch)
     {
-        $branch->load(['accounts.customer', 'employees']);
-        return view('branches.show', compact('branch'));
+        // Build accounts query with filtering
+        $accountsQuery = $branch->accounts()->with('customer');
+        if ($request->has('account_type') && $request->account_type != '') {
+            $accountsQuery->where('account_type', $request->account_type);
+        }
+        $filteredAccounts = $accountsQuery->get();
+
+        // Build employees query with filtering
+        $employeesQuery = $branch->employees();
+        if ($request->has('employee_position') && $request->employee_position != '') {
+            $employeesQuery->where('position', $request->employee_position);
+        }
+        $filteredEmployees = $employeesQuery->get();
+
+        // Get unique account types and employee positions for filter dropdowns
+        $accountTypes = $branch->accounts()->distinct()->pluck('account_type');
+        $employeePositions = $branch->employees()->distinct()->pluck('position');
+
+        return view('branches.show', compact('branch', 'filteredAccounts', 'filteredEmployees', 'accountTypes', 'employeePositions'));
     }
 
     /**

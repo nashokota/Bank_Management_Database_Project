@@ -105,23 +105,15 @@
                 <table class="table table-borderless table-sm">
                     <tr>
                         <td><strong>Branch:</strong></td>
-                        <td>{{ $employee->branch->name }}</td>
+                        <td>{{ $employee->branch->branch_name }}</td>
                     </tr>
                     <tr>
                         <td><strong>Address:</strong></td>
                         <td>{{ $employee->branch->address }}</td>
                     </tr>
                     <tr>
-                        <td><strong>City:</strong></td>
-                        <td>{{ $employee->branch->city }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>State:</strong></td>
-                        <td>{{ $employee->branch->state }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>ZIP Code:</strong></td>
-                        <td>{{ $employee->branch->zip_code }}</td>
+                        <td><strong>Phone:</strong></td>
+                        <td>{{ $employee->branch->phone }}</td>
                     </tr>
                 </table>
                 <div class="text-center">
@@ -178,7 +170,7 @@
         <div class="row">
             <div class="col-md-3 text-center">
                 <div class="border-end">
-                    <h4 class="text-primary mb-1">{{ $employee->created_at->diffInYears() }}</h4>
+                    <h4 class="text-primary mb-1">{{ round($employee->created_at->diffInDays() / 365.25, 1) }}</h4>
                     <small class="text-muted">Years of Service</small>
                 </div>
             </div>
@@ -195,7 +187,7 @@
                 </div>
             </div>
             <div class="col-md-3 text-center">
-                <h4 class="text-warning mb-1">{{ $employee->branch->name }}</h4>
+                <h4 class="text-warning mb-1">{{ $employee->branch->branch_name }}</h4>
                 <small class="text-muted">Work Location</small>
             </div>
         </div>

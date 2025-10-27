@@ -68,7 +68,7 @@
                                     @foreach($branches as $branch)
                                         <option value="{{ $branch->id }}" 
                                                 {{ (old('branch_id') ?? $employee->branch_id) == $branch->id ? 'selected' : '' }}>
-                                            {{ $branch->name }} - {{ $branch->city }}, {{ $branch->state }}
+                                            {{ $branch->branch_name }} - {{ $branch->address }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -119,7 +119,7 @@
                             <div class="col-md-6">
                                 <small>
                                     <strong>Current Position:</strong> {{ ucfirst($employee->position) }}<br>
-                                    <strong>Current Branch:</strong> {{ $employee->branch->name }}
+                                    <strong>Current Branch:</strong> {{ $employee->branch->branch_name }}
                                 </small>
                             </div>
                             <div class="col-md-6">

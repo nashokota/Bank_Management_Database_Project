@@ -9,11 +9,13 @@ class Transaction extends Model
 {
     protected $fillable = [
         'account_id',
+        'destination_account_id',
         'transaction_type',
         'amount',
         'date_time',
         'balance_after_transaction',
-        'description'
+        'description',
+        'transfer_reference'
     ];
 
     protected $casts = [
@@ -25,5 +27,10 @@ class Transaction extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function destinationAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'destination_account_id');
     }
 }

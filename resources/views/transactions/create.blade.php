@@ -48,7 +48,7 @@
                         <div class="col-md-6">
                             <label for="transaction_type" class="form-label">Transaction Type <span class="text-danger">*</span></label>
                             <select class="form-select @error('transaction_type') is-invalid @enderror" 
-                                    name="transaction_type" id="transaction_type" required onchange="updateAmountLabel()">
+                                    name="transaction_type" id="transaction_type" required onchange="updateTransactionType()">
                                 <option value="">Select Type</option>
                                 <option value="deposit" {{ old('transaction_type') == 'deposit' ? 'selected' : '' }}>
                                     Deposit
@@ -64,6 +64,26 @@
                                 </option>
                             </select>
                             @error('transaction_type')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <!-- Destination Account (for transfers only) -->
+                        <div class="col-md-6" id="destinationAccountDiv" style="display: none;">
+                            <label for="destination_account_id" class="form-label">Destination Account <span class="text-danger">*</span></label>
+                            <select class="form-select @error('destination_account_id') is-invalid @enderror" 
+                                    name="destination_account_id" id="destination_account_id">
+                                <option value="">Select Destination Account</option>
+                                @foreach($accounts as $account)
+                                    <option value="{{ $account->id }}" 
+                                            data-balance="{{ $account->balance }}"
+                                            data-customer="{{ $account->customer->name }}"
+                                            {{ old('destination_account_id') == $account->id ? 'selected' : '' }}>
+                                        #{{ $account->id }} - {{ $account->customer->name }} (Balance: ${{ number_format((float)$account->balance, 2) }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('destination_account_id')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
@@ -205,6 +225,12 @@ function loadAccountDetails() {
     }
 }
 
+function updateTransactionType() {
+    updateAmountLabel();
+    toggleDestinationAccount();
+    calculateBalance();
+}
+
 function updateAmountLabel() {
     const transactionType = document.getElementById('transaction_type').value;
     const amountLabel = document.getElementById('amountLabel');
@@ -225,8 +251,33 @@ function updateAmountLabel() {
         default:
             amountLabel.textContent = 'Amount';
     }
+}
+
+function toggleDestinationAccount() {
+    const transactionType = document.getElementById('transaction_type').value;
+    const destinationDiv = document.getElementById('destinationAccountDiv');
+    const destinationSelect = document.getElementById('destination_account_id');
+    const sourceAccountId = document.getElementById('account_id').value;
     
-    calculateBalance();
+    if (transactionType === 'transfer') {
+        destinationDiv.style.display = 'block';
+        destinationSelect.required = true;
+        
+        // Filter out the source account from destination options
+        Array.from(destinationSelect.options).forEach(option => {
+            if (option.value === sourceAccountId) {
+                option.style.display = 'none';
+                option.disabled = true;
+            } else {
+                option.style.display = 'block';
+                option.disabled = false;
+            }
+        });
+    } else {
+        destinationDiv.style.display = 'none';
+        destinationSelect.required = false;
+        destinationSelect.value = '';
+    }
 }
 
 function calculateBalance() {
@@ -272,7 +323,13 @@ function calculateBalance() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadAccountDetails();
-    updateAmountLabel();
+    updateTransactionType();
+    
+    // Add event listener to source account to update destination options
+    document.getElementById('account_id').addEventListener('change', function() {
+        loadAccountDetails();
+        toggleDestinationAccount();
+    });
 });
 </script>
 @endpush

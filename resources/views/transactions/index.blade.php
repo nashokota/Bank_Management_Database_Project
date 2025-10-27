@@ -122,6 +122,15 @@
                                 }}">
                                     {{ ucwords(str_replace('_', ' ', $transaction->transaction_type)) }}
                                 </span>
+                                @if($transaction->transaction_type == 'transfer' && $transaction->destinationAccount)
+                                    <br><small class="text-muted">
+                                        To: {{ $transaction->destinationAccount->customer->name }}
+                                    </small>
+                                @elseif($transaction->transaction_type == 'deposit' && $transaction->transfer_reference)
+                                    <br><small class="text-muted">
+                                        Transfer received
+                                    </small>
+                                @endif
                             </td>
                             <td class="text-{{ 
                                 in_array($transaction->transaction_type, ['deposit', 'loan_payment']) ? 'success' : 'danger' 

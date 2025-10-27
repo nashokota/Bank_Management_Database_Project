@@ -14,7 +14,7 @@ class TransactionController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Transaction::with(['account.customer', 'account.branch']);
+        $query = Transaction::with(['account.customer', 'account.branch', 'destinationAccount.customer']);
 
         // Filter by transaction type
         if ($request->has('transaction_type') && $request->transaction_type != '') {
@@ -62,42 +62,98 @@ class TransactionController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $rules = [
             'account_id' => 'required|exists:accounts,id',
             'transaction_type' => 'required|in:deposit,withdraw,transfer,loan_payment',
             'amount' => 'required|numeric|min:0.01',
             'date_time' => 'nullable|date',
             'description' => 'nullable|string|max:255'
-        ]);
+        ];
+
+        // Add destination account validation for transfers
+        if ($request->transaction_type === 'transfer') {
+            $rules['destination_account_id'] = 'required|exists:accounts,id|different:account_id';
+        }
+
+        $validated = $request->validate($rules);
 
         DB::transaction(function () use ($validated, $request) {
-            $account = Account::find($validated['account_id']);
+            $sourceAccount = Account::find($validated['account_id']);
+            $transferReference = null;
             
-            // Calculate new balance based on transaction type
-            $newBalance = $account->balance;
-            if (in_array($validated['transaction_type'], ['deposit', 'loan_payment'])) {
-                $newBalance += $validated['amount'];
+            if ($validated['transaction_type'] === 'transfer') {
+                $destinationAccount = Account::find($validated['destination_account_id']);
+                
+                // Check if accounts are different
+                if ($sourceAccount->id === $destinationAccount->id) {
+                    throw new \Exception('Cannot transfer to the same account');
+                }
+                
+                // Check if source account has sufficient funds
+                if ($sourceAccount->balance < $validated['amount']) {
+                    throw new \Exception('Insufficient funds in source account');
+                }
+                
+                // Generate unique transfer reference
+                $transferReference = 'TXN' . strtoupper(uniqid());
+                
+                // Create debit transaction for source account
+                $sourceNewBalance = $sourceAccount->balance - $validated['amount'];
+                Transaction::create([
+                    'account_id' => $validated['account_id'],
+                    'destination_account_id' => $validated['destination_account_id'],
+                    'transaction_type' => 'transfer',
+                    'amount' => $validated['amount'],
+                    'date_time' => $request->has('date_time') ? $request->date_time : now(),
+                    'balance_after_transaction' => $sourceNewBalance,
+                    'description' => $validated['description'] ?? 'Transfer to Account #' . $destinationAccount->id,
+                    'transfer_reference' => $transferReference
+                ]);
+                
+                // Create credit transaction for destination account
+                $destinationNewBalance = $destinationAccount->balance + $validated['amount'];
+                Transaction::create([
+                    'account_id' => $validated['destination_account_id'],
+                    'destination_account_id' => $validated['account_id'],
+                    'transaction_type' => 'deposit',
+                    'amount' => $validated['amount'],
+                    'date_time' => $request->has('date_time') ? $request->date_time : now(),
+                    'balance_after_transaction' => $destinationNewBalance,
+                    'description' => $validated['description'] ?? 'Transfer from Account #' . $sourceAccount->id,
+                    'transfer_reference' => $transferReference
+                ]);
+                
+                // Update both account balances
+                $sourceAccount->update(['balance' => $sourceNewBalance]);
+                $destinationAccount->update(['balance' => $destinationNewBalance]);
+                
             } else {
-                $newBalance -= $validated['amount'];
+                // Handle regular transactions (deposit, withdraw, loan_payment)
+                $newBalance = $sourceAccount->balance;
+                if (in_array($validated['transaction_type'], ['deposit', 'loan_payment'])) {
+                    $newBalance += $validated['amount'];
+                } else {
+                    $newBalance -= $validated['amount'];
+                }
+
+                // Check if sufficient funds for withdrawal
+                if ($newBalance < 0 && $validated['transaction_type'] === 'withdraw') {
+                    throw new \Exception('Insufficient funds');
+                }
+
+                // Create transaction
+                Transaction::create([
+                    'account_id' => $validated['account_id'],
+                    'transaction_type' => $validated['transaction_type'],
+                    'amount' => $validated['amount'],
+                    'date_time' => $request->has('date_time') ? $request->date_time : now(),
+                    'balance_after_transaction' => $newBalance,
+                    'description' => $validated['description']
+                ]);
+
+                // Update account balance
+                $sourceAccount->update(['balance' => $newBalance]);
             }
-
-            // Check if sufficient funds for withdrawal/transfer
-            if ($newBalance < 0 && in_array($validated['transaction_type'], ['withdraw', 'transfer'])) {
-                throw new \Exception('Insufficient funds');
-            }
-
-            // Create transaction
-            Transaction::create([
-                'account_id' => $validated['account_id'],
-                'transaction_type' => $validated['transaction_type'],
-                'amount' => $validated['amount'],
-                'date_time' => $request->has('date_time') ? $request->date_time : now(),
-                'balance_after_transaction' => $newBalance,
-                'description' => $validated['description']
-            ]);
-
-            // Update account balance
-            $account->update(['balance' => $newBalance]);
         });
 
         return redirect()->route('transactions.index')
@@ -109,7 +165,7 @@ class TransactionController extends Controller
      */
     public function show(Transaction $transaction)
     {
-        $transaction->load(['account.customer', 'account.branch']);
+        $transaction->load(['account.customer', 'account.branch', 'destinationAccount.customer']);
         
         // Get related transactions from the same account (recent 5)
         $relatedTransactions = Transaction::where('account_id', $transaction->account_id)
